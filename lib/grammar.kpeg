@@ -28,13 +28,14 @@ stat = varlist "=" explist |
 laststat = "return" (explist)* | "break"
 
 funcname = name ("." name)* (":" name)?
+name = </[A-Za-z_][A-Za-z_0-9]*/> { text }
 
-varlist = var ("," var)
+varlist = var (- "," - var)*
 var = name | prefixexp "[" exp "]" | prefixexp "." name
 
 namelist = name ("," name)*
 
-explist = (exp ",")* exp
+explist = (exp - "," -)* - exp
 exp = "nil" | "false" | "true" | number | string | "..." | function | prefixexp |
      tableconstructor | exp binop exp | unop exp
 
@@ -42,7 +43,7 @@ prefixexp = var | functioncall | "(" exp ")"
 
 functioncall = prefixexp args | prefixexp ":" name args
 
-args = "(" (explist)? ")" | tableconstructor | string
+args = "(" - (explist)? - ")" | tableconstructor | string
 
 function = "function" funcbody
 funcbody = "(" (parlist)? ")" block "end"
@@ -60,14 +61,12 @@ unop = "-" | "not" | "#"
 
 primitives = /\b/ ("nil" | "false" | "true") /\b/
 
-name = </[A-Za-z_][A-Za-z_0-9]*/> { text }
-
 # Numbers
 number = hex-literal | dec-literal
 hex-literal = "0x" /[A-Fa-f0-9]+/
 dec-literal = dec-literal-base dec-literal-exponent?
 dec-literal-base = /\d*\.\d+/ | /\d+\.?/
-dec-literal-exponent = ("E"|"e") /[+-]?\d+/
+dec-literal-exponent = /[Ee][+-]?\d+/
 
 # Strings
 string = sgl-string | dbl-string | long-string
@@ -83,7 +82,7 @@ long-string-end(eqs) = "]" long-string-equals:e &{e.length == eqs.length} "]"
 
 # Whitespace/comments
 - = whitespace | comment
-whitespace = /[ \n\t]+/
+whitespace = /[ \n\t]*/
 comment = "--" ( !long-string-start /[^\n]+/ ("\n" | eof)
                | long-string)
 
