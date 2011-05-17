@@ -87,5 +87,5 @@ comment = "--" ( !long-string-start /[^\n]+/ ("\n" | eof)
                | long-string)
 
 # Top-level
-root = chunk:e {@ast = e}
 eof = !.
+root = chunk:e eof {@ast = e}
