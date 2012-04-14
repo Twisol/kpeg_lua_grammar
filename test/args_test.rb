@@ -1,30 +1,16 @@
-require "test/unit"
-require './test/helper_methods'
+require "minitest/unit"
+require "test/helper_methods"
 
-class ArgsTest < Test::Unit::TestCase
-  include TestHelperMethods
-
+class ArgsTest < MiniTest::Unit::TestCase
   def test_parse
-    assert_nothing_raised do
-      parse "()", :args
-    end
-    assert_nothing_raised do
-      parse "(nil)", :args
-    end
-    assert_nothing_raised do
-      parse "(nil,nil)", :args
-    end
-    assert_nothing_raised do
-      parse "(nil, nil )", :args
-    end
+    parse :args, "()", []
+    parse :args, "((nil))", [[:lit, nil]]
+    parse :args, "(nil, false , true )", [[:lit,nil],[:lit,false],[:lit,true]]
+    parse :args, "(nil,(false))", [[:lit, nil],[:lit, false]]
   end
 
   def test_bad
-    assert_raise RuntimeError do
-      parse "(nil,)", :args
-    end
-    assert_raise RuntimeError do
-      parse "(,nil,)", :args
-    end
+    no_parse :args, "(nil,)"
+    no_parse :args, "(,nil,)"
   end
 end

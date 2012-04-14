@@ -1,6 +1,5 @@
 %% name = Lupin::Parser
 %% {
-  require 'rubinius/debugger'
   require 'ast'
   attr_accessor :ast
 }
@@ -13,37 +12,58 @@ chunk = (stat ";"?)* (laststat ";"?)?
 
 block = chunk
 
-stat = varlist "=" explist |
-      functioncall |
-      "do" block "end" |
-      "while" exp "do" block "end" |
-      "repeat" block "until" exp |
-      "if" exp "then" block ("elseif" exp "then" block)* ("else" block)? "end" |
-      "for" name "=" exp "," exp ("," exp)? "do" block "end" |
-      "for" namelist "in" explist "do" block "end" |
-      "function" funcname funcbody |
-      "local" "function" name funcbody |
-      "local" namelist ("=" explist)?
+stat = varlist "=" explist
+     | functioncall
+     | "do" block "end"
+     | "while" exp "do" block "end"
+     | "repeat" block "until" exp
+     | "if" exp "then" block ("elseif" exp "then" block)* ("else" block)? "end"
+     | "for" name "=" exp "," exp ("," exp)? "do" block "end"
+     | "for" namelist "in" explist "do" block "end"
+     | "function" funcname funcbody
+     | "local" "function" name funcbody
+     | "local" namelist ("=" explist)?
 
 laststat = "return" (explist)* | "break"
 
-funcname = name ("." name)* (":" name)?
-name = </[A-Za-z_][A-Za-z_0-9]*/> { text }
+funcname = <name ("." name)* (":" name)?> { [:funcname,text.to_sym]}
+name = </[A-Za-z_][A-Za-z_0-9]*/> { text.to_sym }
 
-varlist = var (- "," - var)*
-var = name | prefixexp "[" exp "]" | prefixexp "." name
+varlist = var:v (- "," - var)*:vs { [:varlist, (vs.nil? || vs.empty?) ? [v] : vs.unshift(v)]}
+var = name:n                    { [:name,   n]        }
+    | prefixexp:p "[" exp:e "]" { [:lookup, p, e]     }
+    | prefixexp:p "." name:n    { [:method, n]        }
 
 namelist = name ("," name)*
 
-explist = (exp - "," -)* - exp
-exp = "nil" | "false" | "true" | number | string | "..." | function | prefixexp |
-     tableconstructor | exp binop exp | unop exp
+# Sorry for the nested
+explist = ((exp - "," -)*:es - exp):e {
+                (es.nil? || es.empty?) ? [e] : es << e
+          }
+# TODO: I don't like functioncall here. prefixexp's functioncall should suffice!
+exp = "nil"         { [:lit, nil]   }
+    | "false"       { [:lit, false] }
+    | "true"        { [:lit, true]  }
+    | number:n      { n             }
+    | string:s      { s             }
+    | "..."         { [:varargs]    }
+    | prefixexp:pe  { pe }
+    | function
+    | tableconstructor
+    | exp:e1 binop:op exp:e2 { [op,e1,e2] } 
+    | unop exp
 
-prefixexp = var | functioncall | "(" exp ")"
+prefixexp = functioncall:fc { fc }
+          | var:v           { v }
+          | "(" exp:e ")"   { e }
 
-functioncall = prefixexp args | prefixexp ":" name args
 
-args = "(" - (explist)? - ")" | tableconstructor | string
+functioncall = prefixexp:pe args:a            { [:functioncall, pe, a]}
+             | prefixexp:pe ":" name:n args:a { [:functioncall, pe, n, a] }
+
+args = - "(" - ((explist)?):e - ")" - { e.nil? ? [] : e }
+     | tableconstructor
+     | string
 
 function = "function" funcbody
 funcbody = "(" (parlist)? ")" block "end"
@@ -55,36 +75,58 @@ fieldlist = field (fieldsep field)* (fieldsep)?
 field = "[" exp "]" "=" exp | name "=" exp | exp
 fieldsep = "," | ";"
 
-binop = "+" | "-" | "*" | "/" | "^" | "%" | ".." | "<" | "<=" | ">" | ">=" | "==" | "~=" | "and" | "or"
+binop_exp = exp binop exp
+binop = "+"    { :"+" }
+      | "-"    { :"-" }
+      | "*"    { :"*" }
+      | "/"    { :"/" }
+      | "^"    { :"^" }
+      | "%"    { :"%" }
+      | ".."   { :".." }
+      | "<"    { :"<"  }
+      | "<="   { :"<=" }
+      | ">"    { :">"  }
+      | ">="   { :">=" }
+      | "=="   { :"==" }
+      | "~="   { :"~=" }
+      | "and"  { :and  }
+      | "or"   { :or   }
 
 unop = "-" | "not" | "#" 
 
 primitives = /\b/ ("nil" | "false" | "true") /\b/
 
 # Numbers
-number = hex-literal | dec-literal
-hex-literal = "0x" /[A-Fa-f0-9]+/
-dec-literal = dec-literal-base dec-literal-exponent?
-dec-literal-base = /\d*\.\d+/ | /\d+\.?/
+# TODO: How to handle the exponents? Expand to ruby value?
+number = hex-literal:n { [:number,n] }
+       | dec-literal:n { [:number,n] }
+hex-literal = "0x" </[A-Fa-f0-9]+/>                         { text.hex  }
+dec-literal = <dec-literal-base:base dec-literal-exponent?> { text.to_f }
+dec-literal-base = /\d*\.\d+/
+                 | /\d+\.?/
 dec-literal-exponent = /[Ee][+-]?\d+/
 
 # Strings
-string = sgl-string | dbl-string | long-string
-sgl-string = "'" </(\\.|[^\'\n])*/m> "'" {text}
-dbl-string = "\"" </(\\.|[^\"\n])*/m> "\"" {text}
+string = sgl-string:ss  { [:string, ss] }
+       | dbl-string:ds  { [:string, ds] }
+       | long-string:ls { [:string, ls] }
+sgl-string = "'" </(\\.|[^\'\n])*/m> "'" { text }
+dbl-string = "\"" </(\\.|[^\"\n])*/m> "\"" { text }
 long-string = long-string-start:e
               <(!long-string-end(e) .)*>
-              long-string-end(e)
-            {text}
+              long-string-end(e) { text }
 long-string-equals = <"="*> {text}
 long-string-start = "[" <long-string-equals> "[" {text}
 long-string-end(eqs) = "]" long-string-equals:e &{e.length == eqs.length} "]"
 
 # Whitespace/comments
-- = whitespace | comment
+- = whitespace
+  | comment
 whitespace = /[ \n\t]*/
-comment = "--" ( !long-string-start /[^\n]+/ ("\n" | eof)
-               | long-string)
+one-line-comment-content = </[^\n]+/> { text }
+one-line-comment = !long-string-start one-line-comment-content:c ("\n" | eof) { c }
+multi-line-comment = long-string:ls { ls }
+comment = "--" (one-line-comment | multi-line-comment):content { [:comment, content] }
 
 # Top-level
 eof = !.

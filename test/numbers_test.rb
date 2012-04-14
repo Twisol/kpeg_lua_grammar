@@ -1,47 +1,23 @@
-require "test/unit"
-require './test/helper_methods'
+require "minitest/unit"
+require "test/helper_methods"
 
-class NumbersTest < Test::Unit::TestCase
-  include TestHelperMethods
-  
+class NumbersTest < MiniTest::Unit::TestCase
   def test_numbers
-    assert_nothing_raised do
-      parse "0123456789.0123456789", :number
-      parse "9e1", :number
-      parse "9E1", :number
-      parse "0.42", :number
-      parse "42e+2", :number
-      parse "42e-1", :number
-    end
-    
-    assert_nothing_raised do
-      parse "0x1234567890AbCdEf", :number
-    end
-
-    assert_nothing_raised do
-      parse "9.", :number
-    end
-    
-    assert_nothing_raised do
-      parse ".42", :number
-    end
+    parse :number, "0123456789.0123456789", [:number,123456789.0123456789]
+    parse :number, "9e1", [:number,9e1]
+    parse :number, "9E1", [:number,9E1]
+    parse :number, "0.42", [:number,0.42]
+    parse :number, "42e+2", [:number,42e+2]
+    parse :number, "42e-1", [:number,42e-1]
+    parse :number, "0x1234567890AbCdEf", [:number,0x1234567890AbCdEf]
+    parse :number, "9.", [:number,9.0]
+    parse :number, ".42", [:number,0.42]
   end
   
   def test_bad_numbers
-    assert_raise RuntimeError do
-      parse ".", :number
-    end
-    
-    assert_raise RuntimeError do
-      parse "9.+e1", :number
-    end
-    
-    assert_raise RuntimeError do
-      parse "0xG", :number
-    end
-    
-    assert_raise RuntimeError do
-      parse "FF", :number
-    end
+    no_parse :number, "."
+    no_parse :number, "0xG"
+    no_parse :number, "FF"
+    no_parse :number, "9.+e1"
   end
 end

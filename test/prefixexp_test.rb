@@ -1,18 +1,13 @@
-require "test/unit"
-require './test/helper_methods'
+require "minitest/autorun"
+require "test/helper_methods"
 
-class PrefixexpTest < Test::Unit::TestCase
-  include TestHelperMethods
-
+class PrefixexpTest < MiniTest::Unit::TestCase
   def test_parse
-    assert_nothing_raised do
-    #  parse "(1+1)", :prefixexp
-    end
+    parse :prefixexp, "(nil)", [:lit,nil]
+    parse :prefixexp, "some_var", [:name,:some_var]
+    parse :prefixexp, "kitties()", [:functioncall,[:name,:kitties],[]]
   end
 
   def test_bad
-    assert_raise RuntimeError do
-      raise
-    end
   end
 end

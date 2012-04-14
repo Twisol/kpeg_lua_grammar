@@ -1,34 +1,20 @@
-require "test/unit"
-require './test/helper_methods'
+require "minitest/autorun"
+require "test/helper_methods"
 
-class NameTest < Test::Unit::TestCase
-  include TestHelperMethods
-  
+class NameTest < MiniTest::Unit::TestCase
   def test_names
-    assert_nothing_raised do
-      parse "someName", :name
-      parse "HITHERE", :name
-      parse "_Leading", :name
-      parse "_LEADING", :name
-      parse "Has3Numbers94", :name
-    end
+    parse :name, "someName", :someName
+    parse :name, "HITHERE",  :HITHERE
+    parse :name, "_Leading", :_Leading
+    parse :name, "_LEADING", :_LEADING
+    parse :name, "Has3Numbers94", :Has3Numbers94
   end
   
   def test_bad_names
-    assert_raise RuntimeError do
-      parse "0", :name
-    end
-    assert_raise RuntimeError do
-      parse "$", :name
-    end
-    assert_raise RuntimeError do
-      parse "0badname", :name
-    end
-    assert_raise RuntimeError do
-      parse "no spaces allowed", :name
-    end
-    assert_raise RuntimeError do
-      parse "   leading_spaces_bad", :name
-    end
+    no_parse :name, "0"
+    no_parse :name, "$"
+    no_parse :name, "0badname"
+    no_parse :name, "no spaces allowed"
+    no_parse :name, "   leading_spaces_bad"
   end
 end
